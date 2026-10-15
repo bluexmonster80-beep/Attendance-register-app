@@ -1,0 +1,7 @@
+{
+  "name": "EduAttend - Class & Attendance Manager",
+  "description": "Comprehensive school attendance, class roster management, student performance tracking, and analytics app for teachers and educators.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

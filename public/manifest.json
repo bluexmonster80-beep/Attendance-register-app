@@ -1,0 +1,21 @@
+{
+  "id": "/",
+  "name": "EduAttend - School Attendance",
+  "short_name": "EduAttend",
+  "description": "Comprehensive school attendance, class roster management, student performance tracking, and analytics app for teachers and educators.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F8F9FF",
+  "theme_color": "#2563EB",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
