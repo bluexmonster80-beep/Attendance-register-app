@@ -549,12 +549,12 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
         <span className="material-symbols-outlined text-[18px] text-[#565E74] shrink-0">chevron_right</span>
       </section>
 
-      {/* Quick Floating Action Strip */}
-      <div className="sticky bottom-2 z-20 pt-1">
-        <div className="grid grid-cols-2 gap-3 bg-white/95 backdrop-blur-md p-2 rounded-2xl border border-slate-100 shadow-xl">
+      {/* Native Docked Mobile Action Strip */}
+      <div className="sticky bottom-0 z-30 pt-3 pb-safe bg-gradient-to-t from-[#F8F9FF] via-[#F8F9FF]/95 to-transparent -mx-1 px-1">
+        <div className="grid grid-cols-2 gap-3 bg-white p-2.5 rounded-2xl border border-slate-200/80 shadow-lg">
           <button
             onClick={() => onCallFather(student.contact.fatherPhone, student.contact.fatherName)}
-            className="flex items-center justify-center gap-2 h-12 rounded-xl bg-[#EFF4FF] hover:bg-blue-100 text-[#2563EB] text-xs font-bold transition-transform active:scale-95 shadow-sm border border-blue-200/50 cursor-pointer"
+            className="flex items-center justify-center gap-2 h-12 rounded-xl bg-[#EFF4FF] hover:bg-blue-100 text-[#2563EB] text-xs font-bold transition-transform active:scale-95 shadow-xs border border-blue-200/60 cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">call</span>
             <span>Call Father</span>
@@ -562,7 +562,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
 
           <button
             onClick={() => onSendMessage(student)}
-            className="flex items-center justify-center gap-2 h-12 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white text-xs font-bold transition-transform active:scale-95 shadow-md shadow-blue-500/20 cursor-pointer"
+            className="flex items-center justify-center gap-2 h-12 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white text-xs font-bold transition-transform active:scale-95 shadow-md shadow-blue-500/25 cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">chat</span>
             <span>Message</span>

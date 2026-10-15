@@ -1,4 +1,5 @@
 import React from 'react';
+import { soundFX } from '../utils/audio';
 
 export type NavTab = 'dashboard' | 'classes' | 'reports' | 'alerts' | 'settings';
 
@@ -21,16 +22,21 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     { id: 'settings' as NavTab, label: 'Settings', icon: 'settings' },
   ];
 
+  const handleTabClick = (tabId: NavTab) => {
+    soundFX.triggerHaptic('light');
+    onTabChange(tabId);
+  };
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-40 bg-white/95 backdrop-blur-xl border-t border-slate-100 shadow-[0_-4px_24px_rgba(11,28,48,0.06)] pb-safe transition-all">
+    <nav className="fixed sm:sticky bottom-0 left-0 right-0 w-full sm:max-w-[414px] mx-auto z-40 bg-white/95 backdrop-blur-xl border-t border-slate-100 shadow-[0_-4px_24px_rgba(11,28,48,0.06)] pb-safe transition-all">
       <div className="h-16 px-2 flex items-center justify-around">
         {tabs.map((tab) => {
           const isActive = currentTab === tab.id;
           return (
             <button
               key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              className={`flex flex-col items-center justify-center min-w-[56px] min-h-[48px] py-1 px-1 transition-all rounded-xl relative ${
+              onClick={() => handleTabClick(tab.id)}
+              className={`flex flex-col items-center justify-center min-w-[56px] min-h-[48px] py-1 px-1 transition-all rounded-xl relative cursor-pointer active:scale-95 ${
                 isActive
                   ? 'text-[#2563EB] font-bold scale-[1.02]'
                   : 'text-[#64748B] hover:text-[#0B1C30]'

@@ -238,17 +238,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0 pl-2">
+            <div className="flex items-center gap-1.5 shrink-0 pl-1">
               <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-[#BDFFDB]/30 text-[#007D55] border border-emerald-200/40">
-                <span className="material-symbols-outlined text-[16px] material-symbols-filled">check_circle</span>
+                <span className="material-symbols-outlined text-[15px] material-symbols-filled">check_circle</span>
                 <div className="flex flex-col text-right">
-                  <span className="text-[10px] text-[#007D55] leading-none">Today's Attendance</span>
+                  <span className="text-[9px] text-[#007D55] font-semibold leading-none">Today</span>
                   <span className="text-[11px] font-bold text-[#0B1C30] leading-tight tabular-nums">
-                    {cls.todayAttendance.present} / {cls.todayAttendance.total} ({cls.todayAttendance.percentage}%)
+                    {cls.todayAttendance.percentage}%
                   </span>
                 </div>
               </div>
-              <span className="material-symbols-outlined text-[#737686] text-[20px]">chevron_right</span>
+              <span className="material-symbols-outlined text-[#737686] text-[18px]">chevron_right</span>
             </div>
           </div>
         ))}

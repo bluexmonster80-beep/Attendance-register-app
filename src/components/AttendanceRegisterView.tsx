@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ClassItem, Student, AttendanceStatus } from '../types';
+import { soundFX } from '../utils/audio';
 
 interface AttendanceRegisterViewProps {
   currentClass: ClassItem;
@@ -27,6 +28,7 @@ export const AttendanceRegisterView: React.FC<AttendanceRegisterViewProps> = ({
   const [sortBy, setSortBy] = useState<'roll' | 'name' | 'status'>('roll');
   const [selectedDate, setSelectedDate] = useState('Today • 25 Sep 2025');
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showQuickScanModal, setShowQuickScanModal] = useState(false);
   const [activeMenuStudentId, setActiveMenuStudentId] = useState<string | null>(null);
 
   // Compute live attendance summary metrics
@@ -294,6 +296,83 @@ export const AttendanceRegisterView: React.FC<AttendanceRegisterViewProps> = ({
         </button>
       </div>
 
+      {/* Horizontal Mobile Filter Badges */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 mb-2">
+        <button
+          onClick={() => setStatusFilter('ALL')}
+          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer ${
+            statusFilter === 'ALL'
+              ? 'bg-[#2563EB] text-white shadow-xs'
+              : 'bg-white text-[#565E74] border border-slate-200/80 hover:bg-slate-50'
+          }`}
+        >
+          <span>All</span>
+          <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${statusFilter === 'ALL' ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-600'}`}>
+            {stats.total}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setStatusFilter('P')}
+          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer ${
+            statusFilter === 'P'
+              ? 'bg-[#10B981] text-white shadow-xs'
+              : 'bg-white text-[#007D55] border border-emerald-200/70 hover:bg-emerald-50/50'
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-[#10B981]" />
+          <span>Present</span>
+          <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${statusFilter === 'P' ? 'bg-white/25 text-white' : 'bg-emerald-100 text-[#007D55]'}`}>
+            {stats.present}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setStatusFilter('A')}
+          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer ${
+            statusFilter === 'A'
+              ? 'bg-[#EF4444] text-white shadow-xs'
+              : 'bg-white text-[#BA1A1A] border border-rose-200/70 hover:bg-rose-50/50'
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-[#EF4444]" />
+          <span>Absent</span>
+          <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${statusFilter === 'A' ? 'bg-white/25 text-white' : 'bg-rose-100 text-[#BA1A1A]'}`}>
+            {stats.absent}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setStatusFilter('L')}
+          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer ${
+            statusFilter === 'L'
+              ? 'bg-[#F59E0B] text-white shadow-xs'
+              : 'bg-white text-amber-700 border border-amber-200/70 hover:bg-amber-50/50'
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-[#F59E0B]" />
+          <span>Late</span>
+          <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${statusFilter === 'L' ? 'bg-white/25 text-white' : 'bg-amber-100 text-amber-800'}`}>
+            {stats.late}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setStatusFilter('U')}
+          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer ${
+            statusFilter === 'U'
+              ? 'bg-[#64748B] text-white shadow-xs'
+              : 'bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50'
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-slate-400" />
+          <span>Unmarked</span>
+          <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${statusFilter === 'U' ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-600'}`}>
+            {stats.unmarked}
+          </span>
+        </button>
+      </div>
+
       {/* Student Roster List */}
       <div className="flex flex-col gap-3">
         {filteredStudents.length === 0 ? (
@@ -424,11 +503,14 @@ export const AttendanceRegisterView: React.FC<AttendanceRegisterViewProps> = ({
                   </div>
                 </div>
 
-                {/* Segmented Buttons P / A / L / U */}
+                {/* Segmented Buttons P / A / L / U with haptic and audio feedback */}
                 <div className="grid grid-cols-4 gap-2 pt-0.5">
                   <button
-                    onClick={() => onUpdateStudentStatus(student.id, 'P')}
-                    className={`h-10 rounded-xl font-bold text-xs shadow-sm flex items-center justify-center transition-all cursor-pointer ${
+                    onClick={() => {
+                      soundFX.playAttendanceTone('P');
+                      onUpdateStudentStatus(student.id, 'P');
+                    }}
+                    className={`h-11 rounded-xl font-bold text-xs shadow-xs flex items-center justify-center transition-all cursor-pointer active:scale-95 ${
                       student.status === 'P'
                         ? 'bg-[#10B981] text-white ring-2 ring-emerald-200 scale-[1.02]'
                         : 'bg-[#EFF4FF] text-[#565E74] hover:bg-blue-50'
@@ -437,8 +519,11 @@ export const AttendanceRegisterView: React.FC<AttendanceRegisterViewProps> = ({
                     P
                   </button>
                   <button
-                    onClick={() => onUpdateStudentStatus(student.id, 'A')}
-                    className={`h-10 rounded-xl font-bold text-xs shadow-sm flex items-center justify-center transition-all cursor-pointer ${
+                    onClick={() => {
+                      soundFX.playAttendanceTone('A');
+                      onUpdateStudentStatus(student.id, 'A');
+                    }}
+                    className={`h-11 rounded-xl font-bold text-xs shadow-xs flex items-center justify-center transition-all cursor-pointer active:scale-95 ${
                       student.status === 'A'
                         ? 'bg-[#EF4444] text-white ring-2 ring-rose-200 scale-[1.02]'
                         : 'bg-[#EFF4FF] text-[#565E74] hover:bg-blue-50'
@@ -447,8 +532,11 @@ export const AttendanceRegisterView: React.FC<AttendanceRegisterViewProps> = ({
                     A
                   </button>
                   <button
-                    onClick={() => onUpdateStudentStatus(student.id, 'L')}
-                    className={`h-10 rounded-xl font-bold text-xs shadow-sm flex items-center justify-center transition-all cursor-pointer ${
+                    onClick={() => {
+                      soundFX.playAttendanceTone('L');
+                      onUpdateStudentStatus(student.id, 'L');
+                    }}
+                    className={`h-11 rounded-xl font-bold text-xs shadow-xs flex items-center justify-center transition-all cursor-pointer active:scale-95 ${
                       student.status === 'L'
                         ? 'bg-[#F59E0B] text-white ring-2 ring-amber-200 scale-[1.02]'
                         : 'bg-[#EFF4FF] text-[#565E74] hover:bg-blue-50'
@@ -457,8 +545,11 @@ export const AttendanceRegisterView: React.FC<AttendanceRegisterViewProps> = ({
                     L
                   </button>
                   <button
-                    onClick={() => onUpdateStudentStatus(student.id, 'U')}
-                    className={`h-10 rounded-xl font-bold text-xs shadow-sm flex items-center justify-center transition-all cursor-pointer ${
+                    onClick={() => {
+                      soundFX.playAttendanceTone('U');
+                      onUpdateStudentStatus(student.id, 'U');
+                    }}
+                    className={`h-11 rounded-xl font-bold text-xs shadow-xs flex items-center justify-center transition-all cursor-pointer active:scale-95 ${
                       student.status === 'U'
                         ? 'bg-[#64748B] text-white ring-2 ring-slate-300 scale-[1.02]'
                         : 'bg-[#EFF4FF] text-[#565E74] hover:bg-blue-50'
@@ -489,11 +580,11 @@ export const AttendanceRegisterView: React.FC<AttendanceRegisterViewProps> = ({
         )}
       </div>
 
-      {/* Floating Quick Scan / Action Bar with safe bottom clearance */}
-      <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] right-4 z-30">
+      {/* Floating Quick Scan / Action Bar perfectly bounded inside view */}
+      <div className="sticky bottom-20 flex justify-end px-2 z-30 pointer-events-none mt-2">
         <button
-          onClick={onMarkAllPresent}
-          className="flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-[#2563EB] text-white shadow-[0_8px_24px_rgba(37,99,235,0.4)] hover:bg-blue-700 active:scale-95 transition-all cursor-pointer min-h-[44px]"
+          onClick={() => setShowQuickScanModal(true)}
+          className="pointer-events-auto flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-[#2563EB] text-white shadow-[0_8px_24px_rgba(37,99,235,0.4)] hover:bg-blue-700 active:scale-95 transition-all cursor-pointer min-h-[44px]"
         >
           <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
             <span className="material-symbols-outlined text-[18px]">qr_code_scanner</span>
@@ -504,6 +595,74 @@ export const AttendanceRegisterView: React.FC<AttendanceRegisterViewProps> = ({
           </div>
         </button>
       </div>
+
+      {/* Quick Scan Interactive Camera Modal */}
+      {showQuickScanModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl border border-slate-100 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-blue-100 text-[#2563EB] flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[20px]">qr_code_scanner</span>
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#0B1C30]">Smart Attendance Scanner</h3>
+                  <p className="text-[11px] text-[#565E74]">{currentClass.name}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowQuickScanModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+
+            {/* Simulated Camera Viewfinder */}
+            <div className="relative w-full h-48 bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center border-2 border-slate-800">
+              {/* Corner brackets */}
+              <div className="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 border-[#2563EB]" />
+              <div className="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 border-[#2563EB]" />
+              <div className="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 border-[#2563EB]" />
+              <div className="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-[#2563EB]" />
+
+              {/* Animated laser line */}
+              <div className="absolute left-6 right-6 h-0.5 bg-[#10B981] shadow-[0_0_8px_#10B981] animate-pulse" />
+
+              <div className="flex flex-col items-center justify-center text-center text-white/80 gap-1.5 p-4">
+                <span className="material-symbols-outlined text-3xl text-[#2563EB]">center_focus_strong</span>
+                <span className="text-xs font-semibold">Align Student QR Badges or Faces</span>
+                <span className="text-[10px] text-white/60">Optical detection active</span>
+              </div>
+
+              <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] text-emerald-400 font-bold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                {classStudents.length} Students Detected
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowQuickScanModal(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  soundFX.triggerHaptic('success');
+                  onMarkAllPresent();
+                  setShowQuickScanModal(false);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-[#2563EB] text-white text-xs font-bold hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                Mark All Present
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -322,7 +322,7 @@ export default function App() {
         </div>
 
         {/* Main Scrollable View Area */}
-        <main className="flex-1 px-4 pt-1 pb-6 overflow-y-auto">
+        <main className="flex-1 px-3.5 sm:px-4 pt-1 pb-20 overflow-y-auto overscroll-contain">
           {currentView === 'dashboard' && (
             <DashboardView
               teacher={teacher}
@@ -440,7 +440,7 @@ export default function App() {
         </main>
 
         {/* Fixed Bottom Tab Bar */}
-        {currentView !== 'create_class' && currentView !== 'add_student' && (
+        {currentView !== 'create_class' && currentView !== 'add_student' && currentView !== 'student_profile' && (
           <BottomNav
             currentTab={currentTab}
             onTabChange={handleTabChange}
