@@ -73,7 +73,7 @@ export const AlertsView: React.FC<AlertsViewProps> = ({ onBack, onTakeAction }) 
   };
 
   return (
-    <div className="flex flex-col w-full pb-28 select-none space-y-3.5 pt-1">
+    <div className="flex flex-col w-full pb-28 space-y-3.5 pt-1">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">

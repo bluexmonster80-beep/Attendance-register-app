@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   initialTeacher,
   initialClasses,
@@ -11,7 +11,7 @@ import {
   initialRecentReports,
 } from './data/initialData';
 import { ClassItem, Student, AttendanceStatus, RecentReport, TeacherProfile } from './types';
-import { StatusBar } from './components/StatusBar';
+import { DesktopSidebar } from './components/DesktopSidebar';
 import { BottomNav, NavTab } from './components/BottomNav';
 import { DashboardView } from './components/DashboardView';
 import { AttendanceRegisterView } from './components/AttendanceRegisterView';
@@ -24,6 +24,7 @@ import { SettingsView } from './components/SettingsView';
 import { ContactModal, ShareModal } from './components/Modals';
 
 import { usePWAInstall } from './hooks/usePWAInstall';
+import { apiClient, SyncState } from './services/apiClient';
 
 type ViewMode =
   | 'dashboard'
@@ -41,14 +42,31 @@ export default function App() {
   const [teacher, setTeacher] = useState<TeacherProfile>(initialTeacher);
   const [recentReports] = useState<RecentReport[]>(initialRecentReports);
 
+  const [syncState, setSyncState] = useState<SyncState>('synced');
+
+  // Hydrate data from backend API with transparent fallback
+  useEffect(() => {
+    const unsub = apiClient.onSyncChange((state) => {
+      setSyncState(state);
+    });
+
+    apiClient.getBootstrapData().then((bootstrap) => {
+      if (bootstrap) {
+        setClasses(bootstrap.classes);
+        setStudents(bootstrap.students);
+        setTeacher(bootstrap.teacher);
+      }
+    });
+
+    return () => unsub();
+  }, []);
+
   // Navigation states
   const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
   const [currentView, setCurrentView] = useState<ViewMode>('dashboard');
   const [selectedClassId, setSelectedClassId] = useState<string>('class-10-a');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('student-01');
 
-  // Device frame toggle (for testing/previewing on desktop)
-  const [isPhoneFrame, setIsPhoneFrame] = useState(true);
   const [showIOSGuide, setShowIOSGuide] = useState(false);
 
   // PWA install hook
@@ -151,6 +169,21 @@ export default function App() {
     );
 
     showToast(`Marked ${newStatus === 'P' ? 'Present' : newStatus === 'A' ? 'Absent' : newStatus === 'L' ? 'Late' : 'Unmarked'}`);
+
+    // Synchronize with API (with transparent offline fallback)
+    apiClient
+      .updateAttendance({
+        studentId,
+        classId: selectedClassId,
+        status: newStatus,
+      })
+      .then((res) => {
+        if (res.success && res.data) {
+          setClasses((prev) =>
+            prev.map((c) => (c.id === res.data!.updatedClass.id ? res.data!.updatedClass : c))
+          );
+        }
+      });
   };
 
   // Quick Scan: Mark all students as Present
@@ -179,6 +212,15 @@ export default function App() {
     );
 
     showToast('Quick Scan: All students marked Present!');
+
+    // Synchronize with API
+    apiClient.markAllPresent({ classId: selectedClassId }).then((res) => {
+      if (res.success && res.data) {
+        setClasses((prev) =>
+          prev.map((c) => (c.id === res.data!.updatedClass.id ? res.data!.updatedClass : c))
+        );
+      }
+    });
   };
 
   // Handle Tab Switch
@@ -216,6 +258,9 @@ export default function App() {
     setSelectedClassId(newClass.id);
     setCurrentView('attendance_register');
     showToast(`Class "${newClass.name}" created successfully!`);
+
+    // Synchronize with API
+    apiClient.createClass(newClass);
   };
 
   // Add student submission
@@ -238,6 +283,23 @@ export default function App() {
     setSelectedStudentId(newStudent.id);
     setCurrentView('student_profile');
     showToast(`Student ${newStudent.name} saved!`);
+
+    // Synchronize with API
+    apiClient.createStudent({
+      name: newStudent.name,
+      rollNo: newStudent.rollNo,
+      classId: selectedClassId,
+      className: activeClass.name,
+      avatarUrl: newStudent.avatarUrl,
+      contact: newStudent.contact,
+      notes: newStudent.notes,
+    });
+  };
+
+  // Update teacher profile
+  const handleUpdateTeacher = (updated: TeacherProfile) => {
+    setTeacher(updated);
+    apiClient.updateTeacher(updated);
   };
 
   // Contact parent
@@ -262,67 +324,96 @@ export default function App() {
   };
 
   return (
-    <div className="w-full min-h-[100dvh] bg-[#F8F9FF] sm:bg-[#E5EEFF] flex flex-col items-center justify-start text-[#0B1C30] p-0 sm:py-6 sm:px-4 font-sans select-none">
-      {/* Top Floating Control Bar for Demo / Testing Viewports */}
-      <header className="hidden sm:flex items-center justify-between w-full max-w-md mb-3 px-3 py-1.5 bg-white/95 backdrop-blur-md rounded-2xl border border-blue-100 shadow-sm text-xs">
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded-lg bg-[#2563EB] flex items-center justify-center text-white">
-            <span className="material-symbols-outlined text-[13px] material-symbols-filled">fact_check</span>
-          </div>
-          <span className="font-bold text-[#0B1C30]">EduAttend</span>
-          <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.2 rounded font-semibold">Play Store PWA</span>
-        </div>
+    <div className="min-h-screen bg-[#F8F9FF] flex flex-col md:flex-row text-[#0B1C30] font-sans antialiased">
+      {/* Dedicated Desktop Sidebar (hidden on mobile, visible on desktop) */}
+      <DesktopSidebar
+        currentTab={currentTab}
+        onTabChange={handleTabChange}
+        unreadAlertsCount={3}
+        teacher={teacher}
+        onCreateClass={() => setCurrentView('create_class')}
+        onAddStudent={() => setCurrentView('add_student')}
+        syncState={syncState}
+      />
 
-        <div className="flex items-center gap-1.5">
-          {(!isInstalled && (isInstallable || isIOS)) && (
+      {/* Main Responsive Application Shell */}
+      <div className="flex-1 min-w-0 flex flex-col min-h-screen">
+        {/* Desktop Top Header Bar (hidden on mobile) */}
+        <header className="hidden md:flex items-center justify-between px-6 lg:px-10 py-3.5 bg-white/90 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-bold text-[#0B1C30] tracking-tight">
+              {currentView === 'dashboard' && 'School Dashboard'}
+              {currentView === 'attendance_register' && `${activeClass.name} · Attendance Register`}
+              {currentView === 'student_profile' && `${activeStudent.name} · Profile & Record`}
+              {currentView === 'create_class' && 'Create New Classroom'}
+              {currentView === 'add_student' && `Add Student · ${activeClass.name}`}
+              {currentView === 'reports' && 'Attendance Reports & Analytics'}
+              {currentView === 'alerts' && 'Attendance Alerts & Notices'}
+              {currentView === 'settings' && 'App & Account Settings'}
+            </h2>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold border border-blue-100">
+              Academic Year 2025 - 2026
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Quick Class Switcher Dropdown */}
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-xl text-xs font-semibold">
+              <span className="material-symbols-outlined text-slate-400 text-[16px]">school</span>
+              <select
+                value={selectedClassId}
+                onChange={(e) => {
+                  setSelectedClassId(e.target.value);
+                  setCurrentTab('classes');
+                  setCurrentView('attendance_register');
+                }}
+                className="bg-transparent text-[#0B1C30] font-bold outline-none cursor-pointer"
+              >
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.studentCount} students)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {(!isInstalled && (isInstallable || isIOS)) && (
+              <button
+                onClick={handleInstallApp}
+                className="px-3 py-1.5 rounded-xl text-emerald-700 bg-emerald-50 hover:bg-emerald-100 font-bold text-xs flex items-center gap-1.5 border border-emerald-200 cursor-pointer transition-colors"
+              >
+                <span className="material-symbols-outlined text-[16px]">download</span>
+                Install App
+              </button>
+            )}
+
             <button
-              onClick={handleInstallApp}
-              className="px-2 py-0.5 rounded-lg text-emerald-700 bg-emerald-50 hover:bg-emerald-100 font-bold text-[11px] flex items-center gap-1 border border-emerald-200"
+              onClick={() => {
+                setCurrentTab('alerts');
+                setCurrentView('alerts');
+              }}
+              title="Alerts & Notices"
+              className="relative w-9 h-9 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-center text-slate-600 hover:text-blue-600 hover:bg-blue-50 active:scale-95 transition-all cursor-pointer"
             >
-              <span className="material-symbols-outlined text-[14px]">download</span>
-              Install
+              <span className="material-symbols-outlined text-[20px]">notifications</span>
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#BA1A1A]" />
             </button>
-          )}
-          <button
-            onClick={() => setIsPhoneFrame(!isPhoneFrame)}
-            className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-              isPhoneFrame ? 'bg-[#2563EB] text-white shadow-2xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            {isPhoneFrame ? 'Mobile Frame' : 'Full Canvas'}
-          </button>
-        </div>
-      </header>
 
-      {/* Main Mobile App Frame */}
-      <div
-        className={`w-full bg-[#F8F9FF] min-h-[100dvh] sm:min-h-0 relative flex flex-col transition-all overflow-x-hidden ${
-          isPhoneFrame
-            ? 'sm:max-w-[430px] sm:min-h-[890px] sm:rounded-[44px] sm:shadow-[0_25px_70px_rgba(11,28,48,0.2)] sm:border-[8px] sm:border-[#1E293B] sm:ring-1 sm:ring-black/10'
-            : 'sm:max-w-xl sm:rounded-3xl sm:shadow-lg sm:border sm:border-slate-200'
-        }`}
-      >
-        {/* iOS Dynamic Island / Speaker Notch ONLY in Mockup Mode on desktop */}
-        {isPhoneFrame && (
-          <div className="hidden sm:flex justify-center pt-2 w-full z-50">
-            <div className="w-28 h-5 bg-[#1E293B] rounded-full flex items-center justify-between px-3">
-              <div className="w-2 h-2 rounded-full bg-black/60" />
-              <div className="w-2.5 h-2.5 rounded-full bg-blue-950/80 border border-slate-700" />
-            </div>
+            <button
+              onClick={() => {
+                setCurrentTab('settings');
+                setCurrentView('settings');
+              }}
+              title="Settings"
+              className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-center text-slate-600 hover:text-blue-600 hover:bg-blue-50 active:scale-95 transition-all cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[20px]">settings</span>
+            </button>
           </div>
-        )}
+        </header>
 
-        {/* Top Status Bar: only in desktop preview frame; on native mobile, phone's native bar handles it */}
-        <div className="pt-safe sticky top-0 z-40 bg-[#F8F9FF]/95 backdrop-blur-md">
-          {isPhoneFrame && (
-            <div className="hidden sm:block">
-              <StatusBar time="9:41" />
-            </div>
-          )}
-        </div>
-
-        {/* Main Scrollable View Area */}
-        <main className="flex-1 px-3.5 sm:px-4 pt-1 pb-20 overflow-y-auto overscroll-contain">
+        {/* Main Content Area: Smooth, natural document scrolling on both mobile and desktop! */}
+        <main className="flex-1 px-3.5 sm:px-6 md:px-8 lg:px-10 py-3 sm:py-6 max-w-7xl w-full mx-auto pb-24 md:pb-12">
           {currentView === 'dashboard' && (
             <DashboardView
               teacher={teacher}
@@ -373,6 +464,7 @@ export default function App() {
               onSendMessage={(student) => {
                 handleContactStudent(student, 'message');
               }}
+              onToast={(msg) => showToast(msg)}
             />
           )}
 
@@ -400,6 +492,7 @@ export default function App() {
               classes={classes}
               students={students}
               recentReports={recentReports}
+              teacherProfile={teacher}
               onBack={() => {
                 setCurrentView('dashboard');
                 setCurrentTab('dashboard');
@@ -407,8 +500,9 @@ export default function App() {
               onSelectStudent={handleSelectStudent}
               onSelectClass={handleSelectClass}
               onShareReport={() => setIsShareModalOpen(true)}
+              onToast={(msg) => showToast(msg)}
               onDownloadReport={(report) => {
-                showToast(`Downloading ${report.title} (${report.format})...`);
+                showToast(`Downloaded ${report.title} (${report.format})`);
               }}
             />
           )}
@@ -450,7 +544,7 @@ export default function App() {
 
         {/* Global Toast Notification */}
         {toastMessage && (
-          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-[#0B1C30]/90 text-white text-xs font-semibold py-2 px-4 rounded-full shadow-lg backdrop-blur-md flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-50 bg-[#0B1C30]/90 text-white text-xs font-semibold py-2 px-4 rounded-full shadow-lg backdrop-blur-md flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
             <span className="material-symbols-outlined text-[16px] text-emerald-400">check_circle</span>
             <span>{toastMessage}</span>
           </div>

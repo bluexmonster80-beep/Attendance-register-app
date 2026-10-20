@@ -90,7 +90,7 @@ export const AddStudentView: React.FC<AddStudentViewProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col w-full pb-28 select-none space-y-4 pt-1">
+    <form onSubmit={handleSubmit} className="flex flex-col w-full pb-28 space-y-4 pt-1">
       {/* Top Header */}
       <div className="flex items-center gap-3">
         <button

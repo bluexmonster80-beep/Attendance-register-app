@@ -26,7 +26,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col w-full pb-28 select-none space-y-4 pt-1">
+    <div className="flex flex-col w-full pb-28 space-y-4 pt-1">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex flex-col">

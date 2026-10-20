@@ -1,29 +1,39 @@
 import React, { useState } from 'react';
-import { ClassItem, Student, RecentReport } from '../types';
+import { ClassItem, Student, RecentReport, TeacherProfile } from '../types';
+import { soundFX } from '../utils/audio';
+import { exportAttendancePDF, exportAttendanceCSV } from '../utils/reportExporter';
 
 interface ReportsViewProps {
   classes: ClassItem[];
   students: Student[];
   recentReports: RecentReport[];
+  teacherProfile?: TeacherProfile;
   onBack?: () => void;
   onSelectStudent: (student: Student) => void;
   onSelectClass: (classId: string) => void;
   onShareReport: () => void;
-  onDownloadReport: (report: RecentReport) => void;
+  onDownloadReport?: (report: RecentReport) => void;
+  onToast?: (message: string) => void;
 }
 
 export const ReportsView: React.FC<ReportsViewProps> = ({
   classes,
   students,
   recentReports,
+  teacherProfile,
   onBack,
   onSelectStudent,
   onSelectClass,
   onShareReport,
   onDownloadReport,
+  onToast,
 }) => {
   const [trendPeriod, setTrendPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('weekly');
   const [selectedTimeframe, setSelectedTimeframe] = useState('This Month');
+  const [exportClassId, setExportClassId] = useState<string>(classes[0]?.id || 'all');
+  const [exportTimeframe, setExportTimeframe] = useState<string>('This Month');
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [exportFeedback, setExportFeedback] = useState<string | null>(null);
 
   // Trend data according to period
   const trendData = {
@@ -103,8 +113,103 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     },
   ];
 
+  // Export handlers
+  const handleExport = (format: 'PDF' | 'CSV') => {
+    setIsExporting(true);
+    soundFX.triggerHaptic('success');
+    soundFX.playAttendanceTone('P');
+
+    const targetClass = exportClassId === 'all' ? undefined : classes.find((c) => c.id === exportClassId);
+    const targetStudents =
+      exportClassId === 'all'
+        ? students
+        : students.filter((s) => s.classId === exportClassId || (!s.classId && exportClassId === classes[0]?.id));
+
+    const finalStudents = targetStudents.length > 0 ? targetStudents : students;
+    const reportTitle = targetClass
+      ? `${targetClass.name} - Attendance & Progress Report`
+      : 'All Classes - Master Attendance Register';
+
+    try {
+      if (format === 'PDF') {
+        exportAttendancePDF({
+          classItem: targetClass,
+          students: finalStudents,
+          timeframe: exportTimeframe,
+          teacherName: teacherProfile?.name || 'Class Teacher',
+          schoolName: teacherProfile?.schoolName || 'Crescent Model Higher Secondary School',
+          reportTitle,
+        });
+        const msg = `Successfully exported ${reportTitle} as PDF!`;
+        setExportFeedback(msg);
+        if (onToast) onToast(msg);
+      } else {
+        exportAttendanceCSV({
+          classItem: targetClass,
+          students: finalStudents,
+          timeframe: exportTimeframe,
+          teacherName: teacherProfile?.name || 'Class Teacher',
+          schoolName: teacherProfile?.schoolName || 'Crescent Model Higher Secondary School',
+          reportTitle,
+        });
+        const msg = `Successfully exported ${reportTitle} as CSV spreadsheet!`;
+        setExportFeedback(msg);
+        if (onToast) onToast(msg);
+      }
+    } catch (err) {
+      console.error('Export error:', err);
+      if (onToast) onToast('Failed to generate export file');
+    } finally {
+      setIsExporting(false);
+      setTimeout(() => setExportFeedback(null), 4000);
+    }
+  };
+
+  const handleDownloadRecent = (report: RecentReport, formatOverride?: 'PDF' | 'CSV') => {
+    soundFX.triggerHaptic('light');
+    const format = formatOverride || (report.format === 'PDF' ? 'PDF' : 'CSV');
+    const targetClass = classes.find((c) => report.title.toLowerCase().includes(c.name.toLowerCase())) || classes[0];
+    const targetStudents = targetClass ? students.filter((s) => s.classId === targetClass.id) : students;
+    const finalStudents = targetStudents.length > 0 ? targetStudents : students;
+
+    if (format === 'PDF') {
+      exportAttendancePDF({
+        classItem: targetClass,
+        students: finalStudents,
+        timeframe: selectedTimeframe,
+        teacherName: teacherProfile?.name || 'Class Teacher',
+        schoolName: teacherProfile?.schoolName || 'Crescent Model Higher Secondary School',
+        reportTitle: report.title,
+      });
+      const msg = `Exported ${report.title} as PDF`;
+      if (onToast) onToast(msg);
+    } else {
+      exportAttendanceCSV({
+        classItem: targetClass,
+        students: finalStudents,
+        timeframe: selectedTimeframe,
+        teacherName: teacherProfile?.name || 'Class Teacher',
+        schoolName: teacherProfile?.schoolName || 'Crescent Model Higher Secondary School',
+        reportTitle: report.title,
+      });
+      const msg = `Exported ${report.title} as CSV`;
+      if (onToast) onToast(msg);
+    }
+
+    if (onDownloadReport) {
+      onDownloadReport(report);
+    }
+  };
+
+  const currentTargetClass = exportClassId === 'all' ? undefined : classes.find((c) => c.id === exportClassId);
+  const currentTargetStudents =
+    exportClassId === 'all'
+      ? students
+      : students.filter((s) => s.classId === exportClassId || (!s.classId && exportClassId === classes[0]?.id));
+  const countToExport = currentTargetStudents.length > 0 ? currentTargetStudents.length : students.length;
+
   return (
-    <div className="flex flex-col w-full pb-28 select-none space-y-3.5 pt-1">
+    <div className="flex flex-col w-full pb-28 space-y-3.5 pt-1">
       {/* Sub-Header Controls & Scope Filter */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -215,6 +320,111 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Export Attendance Reports Action Card */}
+      <div className="bg-gradient-to-br from-white via-white to-blue-50/40 rounded-2xl p-4 sm:p-5 border border-blue-100 shadow-sm flex flex-col gap-3.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#2563EB] to-blue-500 text-white flex items-center justify-center shadow-[0_4px_12px_rgba(37,99,235,0.25)] shrink-0">
+              <span className="material-symbols-outlined text-[22px]">download</span>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-[15px] sm:text-base font-bold text-[#0B1C30]">Export Attendance Reports</h2>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">PDF &amp; CSV</span>
+              </div>
+              <p className="text-xs text-[#565E74]">Download official class registers, student records, and attendance statistics</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Export Parameters (Class & Timeframe Selectors) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-[#F8FAFF] p-3 rounded-xl border border-blue-100/60">
+          <div>
+            <label className="text-[11px] font-bold text-[#565E74] block mb-1">Target Class</label>
+            <div className="relative">
+              <select
+                value={exportClassId}
+                onChange={(e) => setExportClassId(e.target.value)}
+                className="w-full bg-white border border-slate-200/80 rounded-xl px-3 py-2 text-xs font-bold text-[#0B1C30] outline-none focus:border-blue-500 cursor-pointer appearance-none pr-8 shadow-2xs"
+              >
+                <option value="all">All Classes (Full School Roster - {classes.length} Classes)</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.studentCount} Students)
+                  </option>
+                ))}
+              </select>
+              <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px] pointer-events-none">
+                expand_more
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[11px] font-bold text-[#565E74] block mb-1">Report Timeframe</label>
+            <div className="relative">
+              <select
+                value={exportTimeframe}
+                onChange={(e) => setExportTimeframe(e.target.value)}
+                className="w-full bg-white border border-slate-200/80 rounded-xl px-3 py-2 text-xs font-bold text-[#0B1C30] outline-none focus:border-blue-500 cursor-pointer appearance-none pr-8 shadow-2xs"
+              >
+                <option value="This Month">This Month (Current)</option>
+                <option value="Last Month">Last Month</option>
+                <option value="Term 1">Term 1 (Autumn)</option>
+                <option value="Term 2">Term 2 (Spring)</option>
+                <option value="Full Year">Full Academic Year (2025-2026)</option>
+              </select>
+              <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px] pointer-events-none">
+                expand_more
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Live Export Summary Badge */}
+        <div className="flex items-center justify-between text-xs px-3 py-2 bg-blue-50/60 rounded-xl border border-blue-100/50 text-[#004AC6]">
+          <span className="flex items-center gap-1.5 font-medium">
+            <span className="material-symbols-outlined text-[16px]">info</span>
+            Includes {countToExport} student records • Roll numbers, contact info &amp; attendance %
+          </span>
+          <span className="font-bold text-[#0B1C30] hidden sm:inline">
+            {currentTargetClass ? currentTargetClass.name : 'All Classes'}
+          </span>
+        </div>
+
+        {/* Dual Export Action Buttons */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-0.5">
+          {/* PDF Download Button */}
+          <button
+            onClick={() => handleExport('PDF')}
+            disabled={isExporting}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#BA1A1A] hover:bg-[#9E1414] active:scale-[0.98] text-white font-bold text-xs shadow-[0_3px_10px_rgba(186,26,26,0.22)] transition-all cursor-pointer min-h-[44px]"
+          >
+            <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+            <span>Download PDF Report</span>
+            <span className="text-[10px] opacity-80 font-normal ml-0.5">(.pdf)</span>
+          </button>
+
+          {/* CSV Download Button */}
+          <button
+            onClick={() => handleExport('CSV')}
+            disabled={isExporting}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#007D55] hover:bg-[#006645] active:scale-[0.98] text-white font-bold text-xs shadow-[0_3px_10px_rgba(0,125,85,0.22)] transition-all cursor-pointer min-h-[44px]"
+          >
+            <span className="material-symbols-outlined text-[18px]">table_chart</span>
+            <span>Download CSV Spreadsheet</span>
+            <span className="text-[10px] opacity-80 font-normal ml-0.5">(.csv)</span>
+          </button>
+        </div>
+
+        {exportFeedback && (
+          <div className="flex items-center gap-2 p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl font-medium animate-fadeIn">
+            <span className="material-symbols-outlined text-emerald-600 text-[18px]">check_circle</span>
+            <span>{exportFeedback}</span>
+          </div>
+        )}
       </div>
 
       {/* Attendance Trend Chart Module */}
@@ -631,21 +841,23 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <span
-                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                    report.format === 'PDF'
-                      ? 'bg-[#FFDAD6] text-[#BA1A1A]'
-                      : 'bg-emerald-100 text-[#007D55]'
-                  }`}
-                >
-                  {report.format}
-                </span>
+              <div className="flex items-center gap-1.5 shrink-0">
                 <button
-                  onClick={() => onDownloadReport(report)}
-                  className="w-8 h-8 rounded-lg bg-white border border-slate-200 hover:bg-blue-50 flex items-center justify-center text-[#2563EB] transition-colors cursor-pointer"
+                  onClick={() => handleDownloadRecent(report, 'PDF')}
+                  title="Download as PDF"
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-[#BA1A1A] text-[10px] font-bold border border-red-200/60 active:scale-95 transition-all cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[16px]">download</span>
+                  <span className="material-symbols-outlined text-[13px]">picture_as_pdf</span>
+                  <span>PDF</span>
+                </button>
+
+                <button
+                  onClick={() => handleDownloadRecent(report, 'CSV')}
+                  title="Download as CSV spreadsheet"
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-[#007D55] text-[10px] font-bold border border-emerald-200/60 active:scale-95 transition-all cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[13px]">table_chart</span>
+                  <span>CSV</span>
                 </button>
               </div>
             </div>

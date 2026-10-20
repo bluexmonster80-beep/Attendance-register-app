@@ -25,9 +25,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onViewAllClasses,
 }) => {
   return (
-    <div className="flex flex-col w-full gap-4 select-none pb-24">
-      {/* Top App Bar */}
-      <div className="flex items-center justify-between py-1">
+    <div className="flex flex-col w-full gap-4 pb-24">
+      {/* Top App Bar (Mobile only) */}
+      <div className="flex md:hidden items-center justify-between py-1">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#2563EB] flex items-center justify-center text-white shadow-[0_4px_16px_-2px_rgba(37,99,235,0.35)]">
             <span className="material-symbols-outlined text-[22px] material-symbols-filled">fact_check</span>
@@ -98,9 +98,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span className="material-symbols-outlined absolute -top-1 -right-1 text-emerald-500 text-[16px] animate-pulse">
                 auto_awesome
               </span>
-              <span className="material-symbols-outlined absolute bottom-2 -left-2 text-blue-400 text-[14px]">
-                sparkles
-              </span>
             </div>
           </div>
 
@@ -134,8 +131,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* Metric Overview Tiles (4 cards 2x2 grid) */}
-      <div className="grid grid-cols-2 gap-3 w-full">
+      {/* Metric Overview Tiles (4 cards on desktop, 2x2 on mobile) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 w-full">
         {/* Stat 1: Total Classes */}
         <div className="flex flex-col p-3.5 rounded-[20px] bg-white border border-slate-100 shadow-sm">
           <div className="flex items-center justify-between mb-2">
@@ -210,8 +207,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </button>
       </div>
 
-      {/* Class Cards Stack */}
-      <div className="flex flex-col gap-2.5 w-full">
+      {/* Class Cards Stack / Responsive Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 w-full">
         {classes.map((cls) => (
           <div
             key={cls.id}

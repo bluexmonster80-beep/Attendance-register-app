@@ -8,6 +8,7 @@ interface AttendanceRegisterViewProps {
   onBack: () => void;
   onSelectStudent: (student: Student) => void;
   onAddStudent: () => void;
+  onImportRoster?: () => void;
   onUpdateStudentStatus: (studentId: string, newStatus: AttendanceStatus) => void;
   onMarkAllPresent: () => void;
   onContactStudent: (student: Student, type: 'call' | 'message') => void;
@@ -19,6 +20,7 @@ export const AttendanceRegisterView: React.FC<AttendanceRegisterViewProps> = ({
   onBack,
   onSelectStudent,
   onAddStudent,
+  onImportRoster,
   onUpdateStudentStatus,
   onMarkAllPresent,
   onContactStudent,
@@ -96,7 +98,7 @@ export const AttendanceRegisterView: React.FC<AttendanceRegisterViewProps> = ({
   ];
 
   return (
-    <div className="flex flex-col w-full pb-28 select-none relative">
+    <div className="flex flex-col w-full pb-28 relative">
       {/* Top Bar Context / Header Extension */}
       <div className="flex items-center justify-between mb-3 pt-1">
         <div className="flex items-center gap-2.5">
@@ -122,13 +124,27 @@ export const AttendanceRegisterView: React.FC<AttendanceRegisterViewProps> = ({
           </div>
         </div>
 
-        <button
-          onClick={onAddStudent}
-          className="flex items-center gap-1 px-3 py-2 rounded-xl bg-[#2563EB] text-white text-xs font-bold shadow-[0_3px_10px_rgba(37,99,235,0.25)] active:scale-95 hover:bg-blue-700 transition-all cursor-pointer min-h-[44px]"
-        >
-          <span className="material-symbols-outlined text-[16px]">add</span>
-          <span>Add Student</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {onImportRoster && (
+            <button
+              onClick={onImportRoster}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#007D55] text-xs font-bold border border-emerald-200/80 shadow-2xs active:scale-95 transition-all cursor-pointer min-h-[44px]"
+              title="Import student roster from CSV file"
+            >
+              <span className="material-symbols-outlined text-[16px]">upload_file</span>
+              <span className="hidden sm:inline">Import CSV</span>
+              <span className="sm:hidden">Import</span>
+            </button>
+          )}
+
+          <button
+            onClick={onAddStudent}
+            className="flex items-center gap-1 px-3 py-2 rounded-xl bg-[#2563EB] text-white text-xs font-bold shadow-[0_3px_10px_rgba(37,99,235,0.25)] active:scale-95 hover:bg-blue-700 transition-all cursor-pointer min-h-[44px]"
+          >
+            <span className="material-symbols-outlined text-[16px]">add</span>
+            <span>Add Student</span>
+          </button>
+        </div>
       </div>
 
       {/* Date Navigation Pill & Action */}
