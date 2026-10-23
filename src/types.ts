@@ -89,3 +89,14 @@ export interface TeacherProfile {
   schoolName: string;
   avatarUrl: string;
 }
+
+export interface TeacherLog {
+  id: string;
+  type: 'observation' | 'announcement' | 'reminder' | 'urgent';
+  title: string;
+  content: string;
+  classId?: string;
+  className?: string;
+  createdAt: string;
+  pinned?: boolean;
+}

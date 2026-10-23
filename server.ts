@@ -325,7 +325,7 @@ app.post(API_ENDPOINTS.UPDATE_ATTENDANCE, (req: Request, res: Response) => {
 });
 
 // 6. Mark All Present
-app.post(API_ENDPOINTS.MARK_ALL_PRESENT, (req: Request, res: Response) => {
+app.post([API_ENDPOINTS.MARK_ALL_PRESENT, '/api/attendance/mark-all-present'], (req: Request, res: Response) => {
   const { classId } = req.body;
   if (typeof classId !== 'string' || !classId) {
     res.status(400).json(

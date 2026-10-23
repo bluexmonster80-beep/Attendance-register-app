@@ -22,6 +22,7 @@ import { ReportsView } from './components/ReportsView';
 import { AlertsView } from './components/AlertsView';
 import { SettingsView } from './components/SettingsView';
 import { ContactModal, ShareModal } from './components/Modals';
+import { ImportRosterModal } from './components/ImportRosterModal';
 
 import { usePWAInstall } from './hooks/usePWAInstall';
 import { apiClient, SyncState } from './services/apiClient';
@@ -83,6 +84,7 @@ export default function App() {
     student: null,
   });
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -96,7 +98,7 @@ export default function App() {
     if (isInstallable) {
       const res = await install();
       if (res) {
-        showToast('EduAttend installed to home screen!');
+        showToast('Attendance Manager installed to home screen!');
       }
     } else if (isIOS) {
       setShowIOSGuide(true);
@@ -296,6 +298,44 @@ export default function App() {
     });
   };
 
+  // Bulk import students from CSV
+  const handleImportStudents = async (newStudentsList: Student[], targetClassId: string) => {
+    // Merge new students avoiding duplicate ids
+    setStudents((prev) => {
+      const existingIds = new Set(prev.map((s) => s.id));
+      const filteredNew = newStudentsList.filter((s) => !existingIds.has(s.id));
+      return [...prev, ...filteredNew];
+    });
+
+    const targetClass = classes.find((c) => c.id === targetClassId) || activeClass;
+
+    // Update target class student count
+    setClasses((prev) =>
+      prev.map((c) =>
+        c.id === targetClassId
+          ? {
+              ...c,
+              studentCount: c.studentCount + newStudentsList.length,
+              todayAttendance: {
+                ...c.todayAttendance,
+                total: c.todayAttendance.total + newStudentsList.length,
+              },
+            }
+          : c
+      )
+    );
+
+    setSelectedClassId(targetClassId);
+    showToast(`Successfully imported ${newStudentsList.length} students into ${targetClass.name}!`);
+
+    // Sync to API
+    apiClient.bulkCreateStudents({ students: newStudentsList, classId: targetClassId }).then((res) => {
+      if (res.success) {
+        setSyncState('synced');
+      }
+    });
+  };
+
   // Update teacher profile
   const handleUpdateTeacher = (updated: TeacherProfile) => {
     setTeacher(updated);
@@ -333,6 +373,7 @@ export default function App() {
         teacher={teacher}
         onCreateClass={() => setCurrentView('create_class')}
         onAddStudent={() => setCurrentView('add_student')}
+        onImportRoster={() => setIsImportModalOpen(true)}
         syncState={syncState}
       />
 
@@ -418,9 +459,11 @@ export default function App() {
             <DashboardView
               teacher={teacher}
               classes={classes}
+              students={students}
               totalStudents={totalStudentsCount}
               overallAttendanceRate={overallAttendanceRate}
               onSelectClass={handleSelectClass}
+              onSelectStudent={handleSelectStudent}
               onCreateClass={() => setCurrentView('create_class')}
               onOpenNotifications={() => {
                 setCurrentTab('alerts');
@@ -447,6 +490,7 @@ export default function App() {
               }}
               onSelectStudent={handleSelectStudent}
               onAddStudent={() => setCurrentView('add_student')}
+              onImportRoster={() => setIsImportModalOpen(true)}
               onUpdateStudentStatus={handleUpdateStudentStatus}
               onMarkAllPresent={handleMarkAllPresent}
               onContactStudent={handleContactStudent}
@@ -580,7 +624,7 @@ export default function App() {
                 </p>
                 <p className="flex items-start gap-2">
                   <span className="font-bold text-[#2563EB]">3.</span>
-                  <span>Launch <strong className="text-[#0B1C30]">EduAttend</strong> directly as a full-screen app.</span>
+                  <span>Launch <strong className="text-[#0B1C30]">Attendance Manager</strong> directly as a full-screen app.</span>
                 </p>
               </div>
 
@@ -613,6 +657,16 @@ export default function App() {
           isOpen={isShareModalOpen}
           onClose={() => setIsShareModalOpen(false)}
           onCopied={() => showToast('Report link copied to clipboard!')}
+        />
+
+        <ImportRosterModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          classes={classes}
+          selectedClassId={selectedClassId}
+          existingStudents={students}
+          onImportStudents={handleImportStudents}
+          onToast={showToast}
         />
       </div>
     </div>

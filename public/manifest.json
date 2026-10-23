@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "EduAttend - School Attendance",
-  "short_name": "EduAttend",
+  "name": "Attendance Manager",
+  "short_name": "Attendance Manager",
   "description": "Comprehensive school attendance, class roster management, student performance tracking, and analytics app for teachers and educators.",
   "start_url": "/",
   "scope": "/",

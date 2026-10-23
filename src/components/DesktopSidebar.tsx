@@ -11,6 +11,7 @@ interface DesktopSidebarProps {
   teacher: TeacherProfile;
   onCreateClass: () => void;
   onAddStudent: () => void;
+  onImportRoster?: () => void;
   syncState?: SyncState;
 }
 
@@ -21,6 +22,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   teacher,
   onCreateClass,
   onAddStudent,
+  onImportRoster,
   syncState = 'synced',
 }) => {
   const navItems = [
@@ -71,7 +73,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             <span className="material-symbols-outlined text-[22px] material-symbols-filled">fact_check</span>
           </div>
           <div className="flex flex-col">
-            <span className="font-extrabold text-[17px] text-[#0B1C30] tracking-tight leading-none">EduAttend</span>
+            <span className="font-extrabold text-[16px] text-[#0B1C30] tracking-tight leading-none">Attendance Manager</span>
             <span className="text-[11px] font-semibold text-[#565E74] mt-1">Class & Attendance App</span>
           </div>
         </div>
@@ -143,6 +145,16 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             <span className="material-symbols-outlined text-blue-600 text-[18px]">person_add</span>
             <span>Add Student</span>
           </button>
+          {onImportRoster && (
+            <button
+              onClick={onImportRoster}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#007D55] text-xs font-bold border border-emerald-200/80 shadow-2xs active:scale-98 transition-all cursor-pointer"
+              title="Import student roster from CSV file"
+            >
+              <span className="material-symbols-outlined text-[18px]">upload_file</span>
+              <span>Import Roster CSV</span>
+            </button>
+          )}
         </div>
       </nav>
 

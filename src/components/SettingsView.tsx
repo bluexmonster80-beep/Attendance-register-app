@@ -153,7 +153,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
         >
           <span className="material-symbols-outlined text-[18px]">download_for_offline</span>
-          <span>Install EduAttend App</span>
+          <span>Install Attendance Manager App</span>
         </button>
       </div>
 

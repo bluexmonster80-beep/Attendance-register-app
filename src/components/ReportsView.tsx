@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
 import { ClassItem, Student, RecentReport, TeacherProfile } from '../types';
 import { soundFX } from '../utils/audio';
-import { exportAttendancePDF, exportAttendanceCSV } from '../utils/reportExporter';
+import {
+  exportAttendancePDF,
+  exportAttendanceCSV,
+  exportAdministrativeAttendanceCSV,
+  buildAdministrativeCSVText,
+  AdministrativeExportOptions,
+} from '../utils/reportExporter';
 
 interface ReportsViewProps {
   classes: ClassItem[];
@@ -34,6 +40,17 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const [exportTimeframe, setExportTimeframe] = useState<string>('This Month');
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
+
+  // Administrative CSV Export State
+  const [showAdminExportModal, setShowAdminExportModal] = useState<boolean>(false);
+  const [adminClassId, setAdminClassId] = useState<string>(classes[0]?.id || 'all');
+  const [adminTimeframe, setAdminTimeframe] = useState<string>('This Month');
+  const [adminPurpose, setAdminPurpose] = useState<string>('External Administrative & Regulatory Records');
+  const [includeContactDetails, setIncludeContactDetails] = useState<boolean>(true);
+  const [includeAttendanceBreakdown, setIncludeAttendanceBreakdown] = useState<boolean>(true);
+  const [includePerformance, setIncludePerformance] = useState<boolean>(true);
+  const [includeAdmissionDetails, setIncludeAdmissionDetails] = useState<boolean>(true);
+  const [csvCopied, setCsvCopied] = useState<boolean>(false);
 
   // Trend data according to period
   const trendData = {
@@ -165,6 +182,80 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     }
   };
 
+  // Dedicated Administrative CSV Export Function
+  const handleExportAdministrativeCSV = (optionsOverride?: Partial<AdministrativeExportOptions>) => {
+    setIsExporting(true);
+    soundFX.triggerHaptic('success');
+    soundFX.playAttendanceTone('P');
+
+    const targetClass = adminClassId === 'all' ? undefined : classes.find((c) => c.id === adminClassId);
+    const targetStudents =
+      adminClassId === 'all'
+        ? students
+        : students.filter((s) => s.classId === adminClassId || (!s.classId && adminClassId === classes[0]?.id));
+
+    const finalStudents = targetStudents.length > 0 ? targetStudents : students;
+
+    try {
+      exportAdministrativeAttendanceCSV({
+        classItem: targetClass,
+        students: finalStudents,
+        timeframe: adminTimeframe,
+        teacherName: teacherProfile?.name || 'Senior Teacher',
+        schoolName: teacherProfile?.schoolName || 'Crescent Model Higher Secondary School',
+        academicYear: '2025 - 2026',
+        includeContactDetails,
+        includeAttendanceBreakdown,
+        includePerformance,
+        includeAdmissionDetails,
+        purpose: adminPurpose,
+        ...optionsOverride,
+      });
+
+      const msg = `Exported ${finalStudents.length} student records as Official Administrative CSV!`;
+      setExportFeedback(msg);
+      if (onToast) onToast(msg);
+    } catch (err) {
+      console.error('Administrative CSV Export error:', err);
+      if (onToast) onToast('Failed to generate administrative CSV file');
+    } finally {
+      setIsExporting(false);
+      setTimeout(() => setExportFeedback(null), 4000);
+    }
+  };
+
+  // Copy Administrative CSV text directly to clipboard
+  const handleCopyAdministrativeCSV = () => {
+    const targetClass = adminClassId === 'all' ? undefined : classes.find((c) => c.id === adminClassId);
+    const targetStudents =
+      adminClassId === 'all'
+        ? students
+        : students.filter((s) => s.classId === adminClassId || (!s.classId && adminClassId === classes[0]?.id));
+
+    const finalStudents = targetStudents.length > 0 ? targetStudents : students;
+
+    const { csvText } = buildAdministrativeCSVText({
+      classItem: targetClass,
+      students: finalStudents,
+      timeframe: adminTimeframe,
+      teacherName: teacherProfile?.name || 'Senior Teacher',
+      schoolName: teacherProfile?.schoolName || 'Crescent Model Higher Secondary School',
+      academicYear: '2025 - 2026',
+      includeContactDetails,
+      includeAttendanceBreakdown,
+      includePerformance,
+      includeAdmissionDetails,
+      purpose: adminPurpose,
+    });
+
+    navigator.clipboard.writeText(csvText).then(() => {
+      setCsvCopied(true);
+      soundFX.triggerHaptic('success');
+      if (onToast) onToast('Administrative CSV copied to clipboard!');
+      setTimeout(() => setCsvCopied(false), 2500);
+    });
+  };
+
   const handleDownloadRecent = (report: RecentReport, formatOverride?: 'PDF' | 'CSV') => {
     soundFX.triggerHaptic('light');
     const format = formatOverride || (report.format === 'PDF' ? 'PDF' : 'CSV');
@@ -227,19 +318,33 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           </div>
         </div>
 
-        {/* Timeframe Filter Pill */}
-        <button
-          onClick={() => {
-            const tfs = ['This Month', 'Last Month', 'Term 1', 'Term 2', 'Full Year'];
-            const nextIdx = (tfs.indexOf(selectedTimeframe) + 1) % tfs.length;
-            setSelectedTimeframe(tfs[nextIdx]);
-          }}
-          className="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-200/80 shadow-sm rounded-xl text-[#004AC6] text-xs font-semibold hover:bg-blue-50 transition-colors cursor-pointer"
-        >
-          <span className="material-symbols-outlined text-[16px] text-[#2563EB]">calendar_month</span>
-          <span>{selectedTimeframe}</span>
-          <span className="material-symbols-outlined text-[14px] text-[#565E74]">expand_more</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Timeframe Filter Pill */}
+          <button
+            onClick={() => {
+              const tfs = ['This Month', 'Last Month', 'Term 1', 'Term 2', 'Full Year'];
+              const nextIdx = (tfs.indexOf(selectedTimeframe) + 1) % tfs.length;
+              setSelectedTimeframe(tfs[nextIdx]);
+            }}
+            className="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-200/80 shadow-sm rounded-xl text-[#004AC6] text-xs font-semibold hover:bg-blue-50 transition-colors cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[16px] text-[#2563EB]">calendar_month</span>
+            <span className="hidden sm:inline">{selectedTimeframe}</span>
+            <span className="sm:hidden">{selectedTimeframe.split(' ')[0]}</span>
+            <span className="material-symbols-outlined text-[14px] text-[#565E74]">expand_more</span>
+          </button>
+
+          {/* Quick Admin CSV Export Button */}
+          <button
+            onClick={() => setShowAdminExportModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white shadow-xs rounded-xl text-xs font-bold transition-all cursor-pointer min-h-[34px]"
+            title="Export student attendance records as CSV for external administrative use"
+          >
+            <span className="material-symbols-outlined text-[16px]">table_view</span>
+            <span className="hidden sm:inline">Export Admin CSV</span>
+            <span className="sm:hidden">Admin CSV</span>
+          </button>
+        </div>
       </div>
 
       {/* Overall Attendance Hero Card */}
@@ -417,6 +522,63 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             <span>Download CSV Spreadsheet</span>
             <span className="text-[10px] opacity-80 font-normal ml-0.5">(.csv)</span>
           </button>
+        </div>
+
+        {/* Dedicated Administrative Attendance Records Export Box */}
+        <div className="mt-2 pt-3 border-t border-slate-100 flex flex-col gap-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-emerald-50/80 via-teal-50/50 to-blue-50/60 p-3.5 rounded-2xl border border-emerald-200/70 shadow-2xs">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <span className="material-symbols-outlined text-[22px]">admin_panel_settings</span>
+              </div>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs sm:text-sm font-bold text-[#0B1C30]">
+                    Export Attendance Records for External Administrative Use
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-[#007D55] border border-emerald-200/80">
+                    Official CSV
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#565E74] mt-0.5 leading-relaxed">
+                  Export formatted student attendance records with parent contacts, days breakdown, standing, and academic notes for external administration, board auditing, and SIS synchronization.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+              <button
+                onClick={() => {
+                  setAdminClassId(exportClassId);
+                  setAdminTimeframe(exportTimeframe);
+                  setShowAdminExportModal(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-[#0B1C30] text-xs font-bold border border-slate-200 shadow-2xs active:scale-95 transition-all cursor-pointer min-h-[38px]"
+                title="Preview columns and records before downloading"
+              >
+                <span className="material-symbols-outlined text-[16px] text-slate-500">visibility</span>
+                <span>Preview CSV</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setAdminClassId(exportClassId);
+                  setAdminTimeframe(exportTimeframe);
+                  handleExportAdministrativeCSV({
+                    classItem: currentTargetClass,
+                    students: currentTargetStudents.length > 0 ? currentTargetStudents : students,
+                    timeframe: exportTimeframe,
+                  });
+                }}
+                disabled={isExporting}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer min-h-[38px]"
+                title="Directly export official administrative CSV"
+              >
+                <span className="material-symbols-outlined text-[16px]">file_download</span>
+                <span>Export Admin CSV</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         {exportFeedback && (
@@ -873,6 +1035,309 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           <span>Share Report</span>
         </button>
       </div>
+
+      {/* ADMINISTRATIVE CSV EXPORT & PREVIEW MODAL */}
+      {showAdminExportModal && (() => {
+        const modalTargetClass = adminClassId === 'all' ? undefined : classes.find((c) => c.id === adminClassId);
+        const modalStudents =
+          adminClassId === 'all'
+            ? students
+            : students.filter((s) => s.classId === adminClassId || (!s.classId && adminClassId === classes[0]?.id));
+        const modalFinalStudents = modalStudents.length > 0 ? modalStudents : students;
+        const previewRows = modalFinalStudents.slice(0, 5);
+
+        let totalCols = 9;
+        if (includeAttendanceBreakdown) totalCols += 5;
+        if (includeContactDetails) totalCols += 4;
+        if (includeAdmissionDetails) totalCols += 1;
+        if (includePerformance) totalCols += 4;
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+            <div className="bg-white rounded-3xl max-w-3xl w-full p-5 sm:p-6 shadow-2xl border border-slate-100 flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-150">
+              {/* Modal Header */}
+              <div className="flex items-start justify-between pb-4 border-b border-slate-100 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-sm shrink-0">
+                    <span className="material-symbols-outlined text-[24px]">admin_panel_settings</span>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base sm:text-lg font-bold text-[#0B1C30]">
+                        Export Student Attendance Records
+                      </h3>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-[#007D55] border border-emerald-200">
+                        CSV Format
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#565E74] mt-0.5">
+                      Standardized attendance dataset for external administrative, regulatory, and institutional use.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowAdminExportModal(false)}
+                  className="w-8 h-8 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                  title="Close dialog"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              </div>
+
+              {/* Modal Scrollable Body */}
+              <div className="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+                {/* Configuration Row: Class, Timeframe, Purpose */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/70">
+                  <div>
+                    <label className="text-[11px] font-bold text-[#0B1C30] block mb-1">Target Class</label>
+                    <select
+                      value={adminClassId}
+                      onChange={(e) => setAdminClassId(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-semibold text-[#0B1C30] outline-none focus:border-emerald-500 cursor-pointer shadow-2xs"
+                    >
+                      <option value="all">All Classes ({classes.length} classes, {students.length} students)</option>
+                      {classes.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({c.studentCount} students)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-[#0B1C30] block mb-1">Timeframe Scope</label>
+                    <select
+                      value={adminTimeframe}
+                      onChange={(e) => setAdminTimeframe(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-semibold text-[#0B1C30] outline-none focus:border-emerald-500 cursor-pointer shadow-2xs"
+                    >
+                      <option value="This Month">This Month (Current)</option>
+                      <option value="Last Month">Last Month</option>
+                      <option value="Term 1">Term 1 (Autumn Session)</option>
+                      <option value="Term 2">Term 2 (Spring Session)</option>
+                      <option value="Full Academic Year">Full Academic Year 2025-2026</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-[#0B1C30] block mb-1">Administrative Purpose</label>
+                    <select
+                      value={adminPurpose}
+                      onChange={(e) => setAdminPurpose(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-semibold text-[#0B1C30] outline-none focus:border-emerald-500 cursor-pointer shadow-2xs"
+                    >
+                      <option value="External Administrative & Regulatory Records">Administrative Records</option>
+                      <option value="District / Board Regulatory Submission">Board / District Audit</option>
+                      <option value="Student Information System (SIS) Import">SIS System Import</option>
+                      <option value="Parent-Teacher Review Records">Parent-Teacher Review</option>
+                      <option value="Institutional Compliance Archive">Institutional Archive</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Column Inclusion Toggles */}
+                <div>
+                  <span className="text-xs font-bold text-[#0B1C30] block mb-2">
+                    Include Administrative Data Fields
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <label className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={includeContactDetails}
+                        onChange={(e) => setIncludeContactDetails(e.target.checked)}
+                        className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
+                      />
+                      <div className="flex flex-col">
+                        <span className="font-bold text-[#0B1C30]">Parent &amp; Emergency Contacts</span>
+                        <span className="text-[10px] text-[#565E74]">Guardian name, phones &amp; residential address</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={includeAttendanceBreakdown}
+                        onChange={(e) => setIncludeAttendanceBreakdown(e.target.checked)}
+                        className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
+                      />
+                      <div className="flex flex-col">
+                        <span className="font-bold text-[#0B1C30]">Days Breakdown &amp; Streaks</span>
+                        <span className="text-[10px] text-[#565E74]">Present, Absent, Late &amp; Working day totals</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={includePerformance}
+                        onChange={(e) => setIncludePerformance(e.target.checked)}
+                        className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
+                      />
+                      <div className="flex flex-col">
+                        <span className="font-bold text-[#0B1C30]">Academic Standing &amp; GPA</span>
+                        <span className="text-[10px] text-[#565E74]">Grade, GPA score, remarks &amp; teacher notes</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={includeAdmissionDetails}
+                        onChange={(e) => setIncludeAdmissionDetails(e.target.checked)}
+                        className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
+                      />
+                      <div className="flex flex-col">
+                        <span className="font-bold text-[#0B1C30]">Admission Date &amp; System ID</span>
+                        <span className="text-[10px] text-[#565E74]">Enrollment date and official student ID key</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Dataset Summary Banner */}
+                <div className="flex items-center justify-between text-xs px-3.5 py-2.5 bg-emerald-50/70 border border-emerald-200/60 rounded-xl text-emerald-900 flex-wrap gap-2">
+                  <div className="flex items-center gap-2 font-medium">
+                    <span className="material-symbols-outlined text-emerald-700 text-[18px]">verified</span>
+                    <span>Ready to export: <strong>{modalFinalStudents.length} Students</strong> across <strong>{totalCols} Columns</strong></span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-emerald-800 font-semibold">
+                    <span className="material-symbols-outlined text-[15px]">description</span>
+                    <span>RFC-4180 / UTF-8 BOM (Excel &amp; Sheets Ready)</span>
+                  </div>
+                </div>
+
+                {/* Interactive CSV Data Table Preview */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-bold text-[#0B1C30]">
+                      Records Preview (First 5 of {modalFinalStudents.length} Rows)
+                    </span>
+                    <span className="text-[11px] text-[#565E74]">
+                      Target: {modalTargetClass ? modalTargetClass.name : 'All Classes'}
+                    </span>
+                  </div>
+
+                  <div className="border border-slate-200 rounded-2xl overflow-x-auto shadow-2xs">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-100 text-[#0B1C30] font-bold border-b border-slate-200 text-[11px]">
+                        <tr>
+                          <th className="py-2.5 px-3">Roll #</th>
+                          <th className="py-2.5 px-3">Student Name</th>
+                          <th className="py-2.5 px-3">Class</th>
+                          <th className="py-2.5 px-3">Status</th>
+                          <th className="py-2.5 px-3">Attendance %</th>
+                          <th className="py-2.5 px-3">Standing</th>
+                          {includeContactDetails && (
+                            <>
+                              <th className="py-2.5 px-3">Guardian</th>
+                              <th className="py-2.5 px-3">Phone</th>
+                            </>
+                          )}
+                          {includePerformance && (
+                            <th className="py-2.5 px-3">Academic Score</th>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                        {previewRows.map((st) => {
+                          const percentage = st.attendanceStats?.overallPercentage ?? 85;
+                          let standing = 'Satisfactory';
+                          if (percentage >= 90) standing = 'Excellent';
+                          else if (percentage >= 80) standing = 'Good';
+                          else if (percentage >= 70) standing = 'Needs Attention';
+                          else standing = 'At Risk';
+
+                          return (
+                            <tr key={st.id} className="hover:bg-slate-50 transition-colors">
+                              <td className="py-2 px-3 font-bold text-[#0B1C30]">{st.rollNo}</td>
+                              <td className="py-2 px-3 font-semibold text-[#0B1C30]">{st.name}</td>
+                              <td className="py-2 px-3">{st.className || modalTargetClass?.name || 'Class'}</td>
+                              <td className="py-2 px-3">
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                    st.status === 'P'
+                                      ? 'bg-emerald-100 text-emerald-800'
+                                      : st.status === 'A'
+                                      ? 'bg-rose-100 text-rose-800'
+                                      : 'bg-amber-100 text-amber-800'
+                                  }`}
+                                >
+                                  {st.status === 'P' ? 'Present' : st.status === 'A' ? 'Absent' : 'Late'}
+                                </span>
+                              </td>
+                              <td className="py-2 px-3 font-bold text-[#0B1C30] tabular-nums">{percentage}%</td>
+                              <td className="py-2 px-3">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">
+                                  {standing}
+                                </span>
+                              </td>
+                              {includeContactDetails && (
+                                <>
+                                  <td className="py-2 px-3 truncate max-w-[120px]">{st.contact?.fatherName || '-'}</td>
+                                  <td className="py-2 px-3 font-mono text-[10px]">{st.contact?.fatherPhone || '-'}</td>
+                                </>
+                              )}
+                              {includePerformance && (
+                                <td className="py-2 px-3 font-bold text-blue-700">
+                                  {st.performance ? `${st.performance.averageScore}%` : '85%'}
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer Controls */}
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleCopyAdministrativeCSV}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-700 hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
+                  title="Copy full CSV content to clipboard"
+                >
+                  <span className="material-symbols-outlined text-[16px]">
+                    {csvCopied ? 'check' : 'content_copy'}
+                  </span>
+                  <span>{csvCopied ? 'Copied to Clipboard!' : 'Copy CSV Text'}</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminExportModal(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleExportAdministrativeCSV({
+                        classItem: modalTargetClass,
+                        students: modalFinalStudents,
+                        timeframe: adminTimeframe,
+                      });
+                      setShowAdminExportModal(false);
+                    }}
+                    disabled={isExporting}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">download</span>
+                    <span>Download Administrative CSV</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

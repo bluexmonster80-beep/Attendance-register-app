@@ -1,4 +1,4 @@
-import { ClassItem, Student, TeacherProfile, RecentReport } from '../types';
+import { ClassItem, Student, TeacherProfile, RecentReport, TeacherLog } from '../types';
 
 export const initialTeacher: TeacherProfile = {
   name: 'Muhammad Asif',
@@ -646,5 +646,38 @@ export const initialRecentReports: RecentReport[] = [
     date: 'Sep 2025',
     format: 'Excel',
     fileSize: '420 KB',
+  },
+];
+
+export const initialTeacherLogs: TeacherLog[] = [
+  {
+    id: 'log-01',
+    type: 'announcement',
+    title: 'Midterm Science Practical Submissions',
+    content: 'Class 10-A and 11-B students must submit their completed laboratory journals by Friday 12:00 PM. Practical exams begin next Monday.',
+    className: 'Class 10 - A',
+    classId: 'class-10-a',
+    createdAt: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
+    pinned: true,
+  },
+  {
+    id: 'log-02',
+    type: 'observation',
+    title: 'Attendance improvement after morning assembly check',
+    content: 'Tardiness decreased significantly after roll call adjustments. Bilal and Hamza arrived on time for Physics lecture today.',
+    className: 'Class 11 - B',
+    classId: 'class-11-b',
+    createdAt: new Date(Date.now() - 1000 * 60 * 300).toISOString(),
+    pinned: false,
+  },
+  {
+    id: 'log-03',
+    type: 'reminder',
+    title: 'Parent-Teacher Conference preparation',
+    content: 'Print attendance report cards and conduct performance review flags for all students with under 80% cumulative presence.',
+    className: 'All Classes',
+    classId: undefined,
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 20).toISOString(),
+    pinned: false,
   },
 ];

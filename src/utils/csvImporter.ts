@@ -293,7 +293,7 @@ export const downloadRosterTemplate = (className: string = 'Class Roster'): void
   const a = document.createElement('a');
   a.href = url;
   const sanitized = className.replace(/[^a-zA-Z0-9_-]/g, '_');
-  a.download = `EduAttend_${sanitized}_Roster_Template.csv`;
+  a.download = `AttendanceManager_${sanitized}_Roster_Template.csv`;
   document.body.appendChild(a);
   a.click();
   setTimeout(() => {
